@@ -1,6 +1,6 @@
 // Keepsake Vault service worker: caches the app shell so it opens fast.
 // Bump VERSION whenever index.html changes so phones pick up the update.
-const VERSION = 'kv-v1';
+const VERSION = 'kv-v2';
 const SHELL = ['./', './index.html', './manifest.webmanifest', './icon-192.png', './icon-512.png'];
 
 self.addEventListener('install', e => {

@@ -218,6 +218,7 @@ header{position:sticky;top:0;z-index:20;background:var(--bg);padding:calc(14px +
         <button type="button" class="k" data-v="keep">Keep it</button>
         <button type="button" class="t" data-v="toss">Toss it</button>
       </div>
+      <div class="hint" id="origHint" style="margin-top:8px"></div>
       <div id="boxPick" class="hidden" style="margin-top:10px">
         <select id="edBox"></select>
         <div id="newBox" class="hidden" style="margin-top:10px">
@@ -279,7 +280,16 @@ const SUPABASE_KEY = 'sb_publishable_3YxbUs181JkWsR9Xe5_tow_BAF9GsQS';
 const BUCKET = 'keepsake-photos';
 const TYPES = ['Award','Artwork','Writing','Schoolwork','Craft','Photo','Other'];
 const TYPE_ICON = {Award:'🏆',Artwork:'🎨',Writing:'✏️',Schoolwork:'📚',Craft:'✂️',Photo:'📷',Other:'✨'};
-const GIRL_COLOR = {Reagan:'var(--reagan)',Riley:'var(--riley)',Both:'var(--both)'};
+const ORIG_TIPS = {
+  Award: '💡 Awards photograph perfectly. Keep just the firsts and the big ones; toss the rest.',
+  Artwork: '💡 Art loses texture in a photo. Keep her 3 to 5 favorites per school year.',
+  Writing: '💡 Keep it if her handwriting made you laugh or tear up. Those age best.',
+  Schoolwork: '💡 The photo usually covers it. Keep only the standouts.',
+  Craft: '💡 3D crafts rarely survive a box. Snap a couple of angles and let it go.',
+  Photo: '💡 Printed photo? Keep it if it\'s the only copy.',
+  Other: '💡 Tiebreaker: if it doesn\'t fit in the Keeper Box, it doesn\'t stay.'
+};
+const GIRL_COLOR ={Reagan:'var(--reagan)',Riley:'var(--riley)',Both:'var(--both)'};
 const MAX_EDGE = 2400, THUMB_EDGE = 520;
 
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
@@ -512,6 +522,7 @@ function drawEditor(){
   // original
   $('edOrig').querySelectorAll('button').forEach(b => { b.classList.toggle('on', ed.original === b.dataset.v); b.onclick = () => { ed.original = b.dataset.v; drawEditor(); }; });
   $('boxPick').classList.toggle('hidden', ed.original !== 'keep');
+  $('origHint').textContent = ORIG_TIPS[ed.type] || '';
   const boxOpts = [`<option value="">Which Keeper Box?</option>`, ...state.boxes.map(b => `<option value="${b.id}" ${ed.box_id===b.id?'selected':''}>${esc(b.name)}${b.location?' · '+esc(b.location):''}</option>`), `<option value="__new" ${ed.box_id==='__new'?'selected':''}>+ New box…</option>`];
   $('edBox').innerHTML = boxOpts.join('');
   $('newBox').classList.toggle('hidden', ed.box_id !== '__new');
