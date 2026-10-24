@@ -1,0 +1,746 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Keepsake Vault</title>
+<meta name="theme-color" content="#2f3a56">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+:root{
+  --bg:#faf6ee; --card:#ffffff; --ink:#2f3a56; --muted:#7a7f8f; --line:#e8e1d3;
+  --accent:#f2c230; --accent-ink:#5a4300; --accent-soft:#fdf3cf;
+  --keep:#3f8f5b; --keep-soft:#e3f2e8; --toss:#b5653a; --toss-soft:#f8e6dc;
+  --reagan:#7a5cc8; --riley:#e0708f; --both:#3f8fb5;
+  --shadow:0 1px 2px rgba(47,58,86,.06),0 4px 14px rgba(47,58,86,.07);
+  --r:16px;
+}
+@media (prefers-color-scheme: dark){
+  :root{--bg:#171a22;--card:#222634;--ink:#eef0f6;--muted:#9aa0b2;--line:#323849;
+  --accent-soft:#3a3320;--accent-ink:#f6d66a;--keep-soft:#1f3328;--toss-soft:#3a2a20;
+  --shadow:0 1px 2px rgba(0,0,0,.3),0 4px 14px rgba(0,0,0,.25);}
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;background:var(--bg);color:var(--ink);font-family:Nunito,system-ui,sans-serif;font-size:16px}
+body{min-height:100vh;padding-bottom:calc(96px + env(safe-area-inset-bottom))}
+h1,h2,h3{font-family:Fraunces,Georgia,serif;margin:0}
+button{font:inherit;color:inherit;cursor:pointer}
+input,textarea,select{font:inherit;color:var(--ink);background:var(--card);border:1.5px solid var(--line);border-radius:12px;padding:12px 14px;width:100%}
+textarea{min-height:90px;resize:vertical}
+input:focus,textarea:focus,select:focus{outline:none;border-color:var(--accent)}
+.hidden{display:none!important}
+.wrap{max-width:720px;margin:0 auto;padding:0 16px}
+
+/* header */
+header{position:sticky;top:0;z-index:20;background:var(--bg);padding:calc(14px + env(safe-area-inset-top)) 0 0}
+.top{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.brand{display:flex;align-items:center;gap:10px}
+.brand img{width:34px;height:34px;border-radius:9px}
+.brand h1{font-size:23px}
+.iconbtn{border:0;background:var(--card);box-shadow:var(--shadow);width:40px;height:40px;border-radius:12px;display:grid;place-items:center;font-size:18px}
+.tabs{display:flex;gap:8px;padding:14px 0 12px;overflow-x:auto}
+.tab{border:1.5px solid var(--line);background:var(--card);padding:8px 16px;border-radius:999px;font-weight:700;white-space:nowrap}
+.tab.on{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+
+/* banner */
+.banner{display:flex;align-items:center;gap:12px;background:var(--toss-soft);border-radius:var(--r);padding:12px 14px;margin:4px 0 12px;font-weight:600}
+.banner button{margin-left:auto;border:0;background:var(--toss);color:#fff;border-radius:10px;padding:8px 12px;font-weight:700;white-space:nowrap}
+
+/* timeline */
+.year{margin:18px 0 10px;display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+.year h2{font-size:21px}
+.year span{color:var(--muted);font-weight:600;font-size:14px}
+.grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}
+@media(min-width:560px){.grid{grid-template-columns:repeat(3,1fr)}}
+.card{background:var(--card);border-radius:var(--r);box-shadow:var(--shadow);overflow:hidden;border:0;padding:0;text-align:left;display:flex;flex-direction:column}
+.thumb{aspect-ratio:4/3;background:var(--line) center/cover no-repeat;position:relative}
+.thumb .star{position:absolute;top:8px;right:8px;background:rgba(0,0,0,.45);color:var(--accent);border-radius:999px;width:28px;height:28px;display:grid;place-items:center;font-size:15px}
+.thumb .count{position:absolute;bottom:8px;right:8px;background:rgba(0,0,0,.55);color:#fff;border-radius:8px;padding:2px 7px;font-size:12px;font-weight:700}
+.cbody{padding:10px 12px 12px}
+.ctitle{font-weight:800;font-size:15px;line-height:1.25;margin-bottom:6px;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+.meta{display:flex;flex-wrap:wrap;gap:5px;align-items:center;font-size:12px;color:var(--muted);font-weight:600}
+.chip{display:inline-flex;align-items:center;gap:4px;border-radius:999px;padding:2px 8px;font-size:12px;font-weight:700;background:var(--bg)}
+.chip.keep{background:var(--keep-soft);color:var(--keep)}
+.chip.toss{background:var(--toss-soft);color:var(--toss)}
+.dot{width:8px;height:8px;border-radius:50%;display:inline-block}
+.empty{text-align:center;padding:60px 20px;color:var(--muted)}
+.empty h2{color:var(--ink);margin-bottom:8px;font-size:22px}
+
+/* fab */
+.fab{position:fixed;right:20px;bottom:calc(22px + env(safe-area-inset-bottom));z-index:30;border:0;background:var(--accent);color:var(--accent-ink);width:64px;height:64px;border-radius:20px;font-size:34px;font-weight:800;box-shadow:0 6px 20px rgba(242,194,48,.45)}
+
+/* sheets */
+.sheet{position:fixed;inset:0;z-index:50;background:var(--bg);overflow-y:auto;padding-bottom:calc(30px + env(safe-area-inset-bottom))}
+.sheethead{position:sticky;top:0;z-index:5;background:var(--bg);display:flex;align-items:center;gap:10px;padding:calc(12px + env(safe-area-inset-top)) 16px 12px;border-bottom:1px solid var(--line)}
+.sheethead h2{font-size:20px;flex:1}
+.textbtn{border:0;background:none;font-weight:800;padding:8px 6px;color:var(--muted)}
+.primary{border:0;background:var(--ink);color:var(--bg);font-weight:800;border-radius:12px;padding:12px 18px}
+.primary:disabled{opacity:.5}
+.secondary{border:1.5px solid var(--line);background:var(--card);font-weight:700;border-radius:12px;padding:11px 16px}
+.danger{border:1.5px solid var(--toss);background:none;color:var(--toss);font-weight:700;border-radius:12px;padding:11px 16px}
+.field{margin:18px 0}
+.field>label,.lbl{display:block;font-weight:800;font-size:14px;margin-bottom:8px}
+.hint{color:var(--muted);font-size:13px;font-weight:600;margin-top:6px}
+.pills{display:flex;flex-wrap:wrap;gap:8px}
+.pill{border:1.5px solid var(--line);background:var(--card);border-radius:999px;padding:9px 15px;font-weight:700}
+.pill.on{background:var(--accent-soft);border-color:var(--accent);color:var(--accent-ink)}
+.seg{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.seg button{border:1.5px solid var(--line);background:var(--card);border-radius:12px;padding:12px;font-weight:800}
+.seg button.on.k{background:var(--keep-soft);border-color:var(--keep);color:var(--keep)}
+.seg button.on.t{background:var(--toss-soft);border-color:var(--toss);color:var(--toss)}
+.photos{display:flex;gap:10px;overflow-x:auto;padding-bottom:4px}
+.ph{position:relative;flex:0 0 auto;width:110px;height:110px;border-radius:12px;background:var(--line) center/cover no-repeat}
+.ph button{position:absolute;top:4px;right:4px;border:0;background:rgba(0,0,0,.6);color:#fff;border-radius:999px;width:26px;height:26px;font-weight:800}
+.addph{flex:0 0 auto;width:110px;height:110px;border-radius:12px;border:2px dashed var(--line);background:none;color:var(--muted);font-weight:800;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;font-size:13px}
+.addph b{font-size:26px;line-height:1}
+.toggle{display:flex;align-items:center;gap:12px;background:var(--card);border:1.5px solid var(--line);border-radius:12px;padding:12px 14px;font-weight:700;width:100%;text-align:left}
+.toggle .sw{margin-left:auto;width:44px;height:26px;border-radius:999px;background:var(--line);position:relative;flex:0 0 auto;transition:.2s}
+.toggle .sw:after{content:"";position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:50%;background:#fff;transition:.2s}
+.toggle.on .sw{background:var(--accent)}
+.toggle.on .sw:after{left:21px}
+.row{display:flex;gap:10px}
+.row>*{flex:1}
+
+/* detail */
+.dphoto{width:100%;display:block;border-radius:var(--r);margin-bottom:10px;background:var(--line)}
+.dtitle{font-size:26px;margin:8px 0 10px}
+.story{background:var(--card);border-radius:var(--r);padding:14px 16px;box-shadow:var(--shadow);white-space:pre-wrap;line-height:1.5;margin:14px 0;font-size:16px}
+.facts{background:var(--card);border-radius:var(--r);box-shadow:var(--shadow);padding:4px 16px;margin:14px 0}
+.facts div{display:flex;justify-content:space-between;gap:12px;padding:11px 0;border-bottom:1px solid var(--line);font-size:15px}
+.facts div:last-child{border:0}
+.facts b{color:var(--muted);font-weight:700}
+.actions{display:flex;flex-wrap:wrap;gap:10px;margin-top:16px}
+
+/* crop */
+.cropper{position:fixed;inset:0;z-index:70;background:#111;display:flex;flex-direction:column;color:#fff}
+.cropstage{flex:1;position:relative;overflow:hidden;touch-action:none}
+.cropstage canvas{position:absolute}
+.cropstage svg{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+.handle{position:absolute;width:44px;height:44px;margin:-22px 0 0 -22px;border-radius:50%;touch-action:none}
+.handle:after{content:"";position:absolute;inset:12px;border-radius:50%;background:var(--accent);border:3px solid #fff;box-shadow:0 1px 6px rgba(0,0,0,.6)}
+.croptip{text-align:center;font-weight:700;font-size:14px;padding:12px 16px 4px;color:#ddd}
+.cropbar{display:flex;gap:8px;padding:12px 12px calc(14px + env(safe-area-inset-bottom));flex-wrap:wrap;justify-content:center}
+.cropbar button{border:0;border-radius:12px;padding:12px 14px;font-weight:800;background:#2b2f3a;color:#fff}
+.cropbar .go{background:var(--accent);color:#3a2b00}
+
+/* login */
+.login{max-width:380px;margin:12vh auto 0;padding:0 20px;text-align:center}
+.login img{width:84px;height:84px;border-radius:22px;margin-bottom:14px}
+.login h1{font-size:30px;margin-bottom:6px}
+.login p{color:var(--muted);font-weight:600;margin:0 0 22px}
+.login input{margin-bottom:10px}
+.login .primary{width:100%;padding:14px}
+.err{color:var(--toss);font-weight:700;font-size:14px;min-height:20px;margin:6px 0}
+
+.toast{position:fixed;left:50%;bottom:calc(100px + env(safe-area-inset-bottom));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:12px 18px;border-radius:12px;font-weight:700;z-index:90;box-shadow:var(--shadow);max-width:90vw;text-align:center}
+.busy{position:fixed;inset:0;z-index:95;background:rgba(0,0,0,.45);display:grid;place-items:center;color:#fff;font-weight:800;font-size:17px;text-align:center;padding:20px}
+.spin{width:42px;height:42px;border:4px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:sp 1s linear infinite;margin:0 auto 12px}
+@keyframes sp{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<section id="loginView" class="login hidden">
+  <img src="icon-192.png" alt="">
+  <h1>Keepsake Vault</h1>
+  <p>Sign in with the same login as the Prep App.</p>
+  <input id="email" type="email" placeholder="Email" autocomplete="username">
+  <input id="password" type="password" placeholder="Password" autocomplete="current-password">
+  <div class="err" id="loginErr"></div>
+  <button class="primary" id="loginBtn">Sign in</button>
+</section>
+
+<!-- MAIN -->
+<main id="mainView" class="hidden">
+  <header>
+    <div class="wrap">
+      <div class="top">
+        <div class="brand"><img src="icon-192.png" alt=""><h1>Keepsake Vault</h1></div>
+        <button class="iconbtn" id="settingsBtn" aria-label="Settings">⚙︎</button>
+      </div>
+      <div class="tabs" id="tabs"></div>
+    </div>
+  </header>
+  <div class="wrap">
+    <div id="tossBanner" class="banner hidden"></div>
+    <div id="timeline"></div>
+  </div>
+  <button class="fab" id="fab" aria-label="Add a keepsake">+</button>
+</main>
+
+<!-- EDITOR -->
+<section id="editor" class="sheet hidden">
+  <div class="sheethead">
+    <button class="textbtn" id="edCancel">Cancel</button>
+    <h2 id="edHead">New keepsake</h2>
+    <button class="primary" id="edSave">Save</button>
+  </div>
+  <div class="wrap">
+    <div class="field">
+      <span class="lbl">Photos</span>
+      <div class="photos" id="edPhotos"></div>
+    </div>
+    <div class="field">
+      <span class="lbl">Whose is it?</span>
+      <div class="pills" id="edGirl"></div>
+    </div>
+    <div class="field">
+      <span class="lbl">What is it?</span>
+      <div class="pills" id="edType"></div>
+    </div>
+    <div class="field">
+      <label for="edTitle">Title</label>
+      <input id="edTitle" placeholder="e.g. A Honor Roll, 1st six weeks">
+    </div>
+    <div class="field" id="dateField">
+      <label for="edDate">Date</label>
+      <input id="edDate" type="date">
+      <div style="height:10px"></div>
+      <button class="toggle" id="approxToggle" type="button">Don't know the date? Just pick the grade<span class="sw"></span></button>
+      <div id="approxPick" class="hidden" style="margin-top:10px">
+        <select id="edYear"></select>
+        <div class="hint" id="approxHint"></div>
+      </div>
+    </div>
+    <div class="field">
+      <label for="edStory">The story</label>
+      <textarea id="edStory" placeholder="What she said about it, why it mattered, who it was for…"></textarea>
+    </div>
+    <div class="field">
+      <span class="lbl">The original paper</span>
+      <div class="seg" id="edOrig">
+        <button type="button" class="k" data-v="keep">Keep it</button>
+        <button type="button" class="t" data-v="toss">Toss it</button>
+      </div>
+      <div id="boxPick" class="hidden" style="margin-top:10px">
+        <select id="edBox"></select>
+        <div id="newBox" class="hidden" style="margin-top:10px">
+          <div class="row"><input id="nbName" placeholder="Box name, e.g. Reagan Box 1"></div>
+          <div style="height:8px"></div>
+          <input id="nbLoc" placeholder="Where it lives" value="Dad's office closet">
+        </div>
+      </div>
+    </div>
+    <div class="field">
+      <button class="toggle" id="bookToggle" type="button">⭐ Book-worthy<span class="sw"></span></button>
+      <div class="hint">Starred keepsakes go in her printed yearbook.</div>
+    </div>
+  </div>
+</section>
+
+<!-- DETAIL -->
+<section id="detail" class="sheet hidden">
+  <div class="sheethead">
+    <button class="textbtn" id="dtBack">‹ Back</button>
+    <h2></h2>
+    <button class="secondary" id="dtEdit">Edit</button>
+  </div>
+  <div class="wrap" id="dtBody"></div>
+</section>
+
+<!-- SETTINGS -->
+<section id="settings" class="sheet hidden">
+  <div class="sheethead">
+    <button class="textbtn" id="stBack">‹ Back</button>
+    <h2>Settings</h2>
+    <span style="width:60px"></span>
+  </div>
+  <div class="wrap" id="stBody"></div>
+</section>
+
+<!-- CROPPER -->
+<section id="cropper" class="cropper hidden">
+  <div class="croptip">Drag the yellow dots to the corners of the paper</div>
+  <div class="cropstage" id="cropStage">
+    <canvas id="cropCanvas"></canvas>
+    <svg id="cropSvg"><polygon id="cropPoly" fill="rgba(242,194,48,.18)" stroke="#f2c230" stroke-width="2"/></svg>
+  </div>
+  <div class="cropbar">
+    <button id="cpCancel">Cancel</button>
+    <button id="cpRotate">↻ Rotate</button>
+    <button id="cpWhole">Use whole photo</button>
+    <button id="cpDone" class="go">Crop ✓</button>
+  </div>
+</section>
+
+<input type="file" id="fileCam" accept="image/*" capture="environment" class="hidden">
+<input type="file" id="fileGal" accept="image/*" class="hidden">
+
+<script>
+/* ---------------- config ---------------- */
+const SUPABASE_URL = 'https://hrtuhexblsbdjfdbfblg.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_3YxbUs181JkWsR9Xe5_tow_BAF9GsQS';
+const BUCKET = 'keepsake-photos';
+const TYPES = ['Award','Artwork','Writing','Schoolwork','Craft','Photo','Other'];
+const TYPE_ICON = {Award:'🏆',Artwork:'🎨',Writing:'✏️',Schoolwork:'📚',Craft:'✂️',Photo:'📷',Other:'✨'};
+const GIRL_COLOR = {Reagan:'var(--reagan)',Riley:'var(--riley)',Both:'var(--both)'};
+const MAX_EDGE = 2400, THUMB_EDGE = 520;
+
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+const $ = id => document.getElementById(id);
+const esc = s => (s ?? '').toString().replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+const state = { items: [], boxes: [], kids: [], urls: {}, tab: 'All', tossOnly: false, me: '' };
+
+/* ---------------- helpers ---------------- */
+function schoolYearOf(dateStr){ const [y,m] = dateStr.split('-').map(Number); return m >= 8 ? y : y - 1; }
+function yearLabel(y){ return `${y}–${String((y+1)%100).padStart(2,'0')}`; }
+function gradeName(g){
+  if (g <= -2) return 'Preschool'; if (g === -1) return 'Pre-K'; if (g === 0) return 'Kindergarten';
+  if (g > 12) return 'Graduated'; const s = g===1?'st':g===2?'nd':g===3?'rd':'th'; return `${g}${s} grade`;
+}
+function gradeFor(girl, year){ const k = state.kids.find(k => k.name === girl); return k ? k.grade_2026 + (year - 2026) : null; }
+function prettyDate(d, approx){
+  if (approx) return 'Date unknown';
+  const dt = new Date(d + 'T12:00:00'); return dt.toLocaleDateString(undefined,{month:'short',day:'numeric',year:'numeric'});
+}
+function todayStr(){ const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; }
+function thumbPath(p){ return p.replace(/\.jpg$/, '_t.jpg'); }
+function toast(msg, ms=2600){ const t = document.createElement('div'); t.className='toast'; t.textContent=msg; document.body.appendChild(t); setTimeout(()=>t.remove(), ms); }
+function busy(msg){ const b = document.createElement('div'); b.className='busy'; b.innerHTML=`<div><div class="spin"></div>${esc(msg)}</div>`; document.body.appendChild(b); return () => b.remove(); }
+function show(id){ $(id).classList.remove('hidden'); }
+function hide(id){ $(id).classList.add('hidden'); }
+
+/* ---------------- auth ---------------- */
+async function boot(){
+  const { data:{ session } } = await sb.auth.getSession();
+  if (session) startApp(); else { show('loginView'); hide('mainView'); }
+}
+$('loginBtn').onclick = async () => {
+  $('loginErr').textContent = '';
+  const { error } = await sb.auth.signInWithPassword({ email: $('email').value.trim(), password: $('password').value });
+  if (error) { $('loginErr').textContent = 'That email and password didn\'t match. Try again?'; return; }
+  startApp();
+};
+$('password').addEventListener('keydown', e => { if (e.key === 'Enter') $('loginBtn').click(); });
+
+async function startApp(){
+  hide('loginView'); show('mainView');
+  await loadAll();
+}
+
+/* ---------------- data ---------------- */
+async function loadAll(){
+  const [k, b, i] = await Promise.all([
+    sb.from('keepsake_kids').select('*').order('sort'),
+    sb.from('keepsake_boxes').select('*').order('created_at'),
+    sb.from('keepsakes').select('*').order('item_date', { ascending:false }).order('created_at', { ascending:false })
+  ]);
+  if (i.error) {
+    if (String(i.error.message).toLowerCase().includes('jwt')) { await sb.auth.signOut(); location.reload(); return; }
+    toast('Couldn\'t load keepsakes: ' + i.error.message, 5000); return;
+  }
+  if ((k.data||[]).length === 0 && !i.error) {
+    $('timeline').innerHTML = `<div class="empty"><h2>No access yet</h2>This login isn't set up as a parent account for Keepsake Vault.</div>`;
+    return;
+  }
+  state.kids = k.data || []; state.boxes = b.data || []; state.items = i.data || [];
+  await signThumbs(state.items);
+  render();
+}
+async function signPaths(paths){
+  const need = paths.filter(p => !state.urls[p]);
+  for (let s = 0; s < need.length; s += 100) {
+    const chunk = need.slice(s, s+100);
+    const { data } = await sb.storage.from(BUCKET).createSignedUrls(chunk, 60*60*6);
+    (data||[]).forEach(d => { if (d.signedUrl) state.urls[d.path] = d.signedUrl; });
+  }
+}
+async function signThumbs(items){ await signPaths(items.filter(x => x.photos.length).map(x => thumbPath(x.photos[0]))); }
+
+/* ---------------- main render ---------------- */
+function render(){
+  const tabs = ['All', ...state.kids.map(k => k.name)];
+  $('tabs').innerHTML = tabs.map(t => `<button class="tab ${state.tab===t?'on':''}" data-t="${esc(t)}">${t==='All'?'Everyone':esc(t)}</button>`).join('');
+  $('tabs').querySelectorAll('.tab').forEach(b => b.onclick = () => { state.tab = b.dataset.t; render(); });
+
+  let list = state.items.filter(x => state.tab === 'All' || x.girl === state.tab || x.girl === 'Both');
+  const pending = list.filter(x => x.original === 'toss' && !x.toss_done);
+  if (!pending.length) state.tossOnly = false;
+  const tb = $('tossBanner');
+  if (pending.length && !state.tossOnly) {
+    tb.classList.remove('hidden');
+    tb.innerHTML = `<span>🗑️ ${pending.length} original${pending.length>1?'s':''} still waiting to be tossed</span><button id="tossReview">Review</button>`;
+    $('tossReview').onclick = () => { state.tossOnly = true; render(); };
+  } else if (state.tossOnly) {
+    tb.classList.remove('hidden');
+    tb.innerHTML = `<span>Showing papers to toss. Photo's saved, so out they go.</span><button id="tossDoneAll">Show all</button>`;
+    $('tossDoneAll').onclick = () => { state.tossOnly = false; render(); };
+  } else tb.classList.add('hidden');
+  if (state.tossOnly) list = pending;
+
+  if (!list.length) {
+    $('timeline').innerHTML = state.items.length
+      ? `<div class="empty"><h2>Nothing here yet</h2>Tap the yellow + to add the first one.</div>`
+      : `<div class="empty"><h2>The vault is empty</h2>Grab a certificate or a masterpiece off the counter and tap the yellow + to save it.</div>`;
+    return;
+  }
+  const byYear = {};
+  list.forEach(x => (byYear[x.school_year] ||= []).push(x));
+  const years = Object.keys(byYear).map(Number).sort((a,b) => b-a);
+  $('timeline').innerHTML = years.map(y => {
+    let sub = '';
+    if (state.tab !== 'All') { const g = gradeFor(state.tab, y); if (g !== null) sub = gradeName(g); }
+    else sub = state.kids.filter(k => gradeFor(k.name,y) >= -1).map(k => `${k.name}: ${gradeName(gradeFor(k.name,y))}`).join(' · ');
+    return `<div class="year"><h2>${yearLabel(y)}</h2><span>${esc(sub)}</span></div>
+      <div class="grid">${byYear[y].map(card).join('')}</div>`;
+  }).join('');
+  $('timeline').querySelectorAll('.card').forEach(c => c.onclick = () => openDetail(c.dataset.id));
+}
+function card(x){
+  const url = x.photos.length ? state.urls[thumbPath(x.photos[0])] : '';
+  const title = x.title || `${x.type}`;
+  return `<button class="card" data-id="${x.id}">
+    <div class="thumb" style="${url?`background-image:url('${url}')`:''}">
+      ${x.book_worthy?'<span class="star">★</span>':''}
+      ${x.photos.length>1?`<span class="count">${x.photos.length} photos</span>`:''}
+    </div>
+    <div class="cbody">
+      <div class="ctitle">${TYPE_ICON[x.type]||''} ${esc(title)}</div>
+      <div class="meta">
+        <span class="dot" style="background:${GIRL_COLOR[x.girl]}"></span>${esc(x.girl)}
+        · ${esc(prettyDate(x.item_date, x.date_is_approx))}
+      </div>
+      <div class="meta" style="margin-top:6px">
+        ${x.original==='keep'?'<span class="chip keep">Kept</span>':x.toss_done?'<span class="chip">Tossed</span>':'<span class="chip toss">To toss</span>'}
+      </div>
+    </div>
+  </button>`;
+}
+
+/* ---------------- detail ---------------- */
+async function openDetail(id){
+  const x = state.items.find(i => i.id === id); if (!x) return;
+  await signPaths(x.photos);
+  const box = state.boxes.find(b => b.id === x.box_id);
+  const g = x.girl !== 'Both' ? gradeFor(x.girl, x.school_year) : null;
+  $('dtBody').innerHTML = `
+    <div style="height:14px"></div>
+    ${x.photos.map(p => `<img class="dphoto" src="${state.urls[p]||''}" alt="">`).join('')}
+    <h2 class="dtitle">${TYPE_ICON[x.type]||''} ${esc(x.title || x.type)}</h2>
+    <div class="meta" style="font-size:14px"><span class="dot" style="background:${GIRL_COLOR[x.girl]}"></span>${esc(x.girl)} · ${esc(prettyDate(x.item_date, x.date_is_approx))}</div>
+    ${x.story ? `<div class="story">${esc(x.story)}</div>` : ''}
+    <div class="facts">
+      <div><b>School year</b><span>${yearLabel(x.school_year)}${g!==null?' · '+gradeName(g):''}</span></div>
+      <div><b>Type</b><span>${esc(x.type)}</span></div>
+      <div><b>Original</b><span>${x.original==='keep' ? (box ? `Kept in ${esc(box.name)}${box.location?', '+esc(box.location):''}` : 'Kept') : (x.toss_done ? 'Tossed' : 'Marked to toss')}</span></div>
+      <div><b>In the yearbook</b><span>${x.book_worthy ? '★ Yes' : 'No'}</span></div>
+      ${x.added_by ? `<div><b>Added by</b><span>${esc(x.added_by)}</span></div>` : ''}
+    </div>
+    <div class="actions">
+      <button class="secondary" id="dtStar">${x.book_worthy ? 'Unstar' : '⭐ Star for the book'}</button>
+      ${x.original==='toss' && !x.toss_done ? '<button class="secondary" id="dtTossed">✓ Paper is tossed</button>' : ''}
+      <button class="danger" id="dtDelete">Delete</button>
+    </div>`;
+  $('dtStar').onclick = async () => { await patch(x, { book_worthy: !x.book_worthy }); openDetail(id); };
+  if ($('dtTossed')) $('dtTossed').onclick = async () => { await patch(x, { toss_done: true }); toast('Out it goes. The photo stays forever.'); openDetail(id); };
+  $('dtDelete').onclick = () => removeItem(x);
+  $('dtEdit').onclick = () => openEditor(x);
+  show('detail');
+}
+$('dtBack').onclick = () => { hide('detail'); render(); };
+async function patch(x, fields){
+  const { error } = await sb.from('keepsakes').update(fields).eq('id', x.id);
+  if (error) { toast('Couldn\'t save: ' + error.message, 4000); return; }
+  Object.assign(x, fields);
+}
+async function removeItem(x){
+  if (!confirm('Delete this keepsake and its photos for good?')) return;
+  const done = busy('Deleting…');
+  const paths = x.photos.flatMap(p => [p, thumbPath(p)]);
+  if (paths.length) await sb.storage.from(BUCKET).remove(paths);
+  const { error } = await sb.from('keepsakes').delete().eq('id', x.id);
+  done();
+  if (error) { toast('Couldn\'t delete: ' + error.message, 4000); return; }
+  state.items = state.items.filter(i => i.id !== x.id);
+  hide('detail'); render(); toast('Deleted');
+}
+
+/* ---------------- editor ---------------- */
+let ed = null; // working copy
+function openEditor(existing){
+  const girlDefault = state.tab !== 'All' ? state.tab : (state.kids[0]?.name || 'Reagan');
+  ed = existing ? {
+    id: existing.id, girl: existing.girl, type: existing.type, title: existing.title||'', story: existing.story||'',
+    date: existing.item_date, approx: existing.date_is_approx, year: existing.school_year,
+    original: existing.original, box_id: existing.box_id, book: existing.book_worthy,
+    photos: existing.photos.map(p => ({ path: p, url: state.urls[p] })), removed: [], orig: existing
+  } : {
+    girl: girlDefault, type: 'Award', title:'', story:'', date: todayStr(), approx:false,
+    year: schoolYearOf(todayStr()), original:'toss', box_id:null, book:false, photos:[], removed:[]
+  };
+  $('edHead').textContent = existing ? 'Edit keepsake' : 'New keepsake';
+  $('edTitle').value = ed.title; $('edStory').value = ed.story; $('edDate').value = ed.date;
+  drawEditor();
+  show('editor');
+  if (!existing) pickPhoto('cam');
+}
+function drawEditor(){
+  // photos
+  $('edPhotos').innerHTML = ed.photos.map((p,i) => `<div class="ph" style="background-image:url('${p.url}')"><button data-i="${i}" aria-label="Remove">×</button></div>`).join('')
+    + `<button class="addph" id="addCam" type="button"><b>📷</b>Take photo</button><button class="addph" id="addGal" type="button"><b>🖼️</b>From gallery</button>`;
+  $('edPhotos').querySelectorAll('.ph button').forEach(b => b.onclick = () => {
+    const p = ed.photos.splice(+b.dataset.i, 1)[0]; if (p.path) ed.removed.push(p.path); drawEditor();
+  });
+  $('addCam').onclick = () => pickPhoto('cam'); $('addGal').onclick = () => pickPhoto('gal');
+  // girl
+  const girls = [...state.kids.map(k=>k.name), 'Both'];
+  $('edGirl').innerHTML = girls.map(g => `<button type="button" class="pill ${ed.girl===g?'on':''}" data-v="${esc(g)}">${esc(g)}</button>`).join('');
+  $('edGirl').querySelectorAll('.pill').forEach(b => b.onclick = () => { ed.girl = b.dataset.v; drawEditor(); });
+  // type
+  $('edType').innerHTML = TYPES.map(t => `<button type="button" class="pill ${ed.type===t?'on':''}" data-v="${t}">${TYPE_ICON[t]} ${t}</button>`).join('');
+  $('edType').querySelectorAll('.pill').forEach(b => b.onclick = () => { ed.type = b.dataset.v; drawEditor(); });
+  // approx date
+  $('approxToggle').classList.toggle('on', ed.approx);
+  $('edDate').classList.toggle('hidden', ed.approx);
+  $('approxPick').classList.toggle('hidden', !ed.approx);
+  const thisYear = schoolYearOf(todayStr());
+  const opts = [];
+  for (let y = thisYear; y >= thisYear - 14; y--) {
+    let label = yearLabel(y);
+    if (ed.girl !== 'Both') { const g = gradeFor(ed.girl, y); if (g < -2) break; label = `${gradeName(g)} (${yearLabel(y)})`; }
+    opts.push(`<option value="${y}" ${ed.year===y?'selected':''}>${label}</option>`);
+  }
+  $('edYear').innerHTML = opts.join('');
+  $('approxHint').textContent = 'It\'ll be filed in that school year with no specific day.';
+  // original
+  $('edOrig').querySelectorAll('button').forEach(b => { b.classList.toggle('on', ed.original === b.dataset.v); b.onclick = () => { ed.original = b.dataset.v; drawEditor(); }; });
+  $('boxPick').classList.toggle('hidden', ed.original !== 'keep');
+  const boxOpts = [`<option value="">Which Keeper Box?</option>`, ...state.boxes.map(b => `<option value="${b.id}" ${ed.box_id===b.id?'selected':''}>${esc(b.name)}${b.location?' · '+esc(b.location):''}</option>`), `<option value="__new" ${ed.box_id==='__new'?'selected':''}>+ New box…</option>`];
+  $('edBox').innerHTML = boxOpts.join('');
+  $('newBox').classList.toggle('hidden', ed.box_id !== '__new');
+  if (ed.box_id === '__new' && !$('nbName').value) $('nbName').value = ed.girl !== 'Both' ? `${ed.girl} Box ${state.boxes.filter(b=>b.girl===ed.girl).length+1}` : 'Shared Box';
+  $('bookToggle').classList.toggle('on', ed.book);
+}
+$('approxToggle').onclick = () => { ed.approx = !ed.approx; if (ed.approx) ed.year = schoolYearOf($('edDate').value || todayStr()); drawEditor(); };
+$('edYear').onchange = e => { ed.year = +e.target.value; };
+$('edBox').onchange = e => { ed.box_id = e.target.value || null; drawEditor(); };
+$('bookToggle').onclick = () => { ed.book = !ed.book; drawEditor(); };
+$('edCancel').onclick = () => {
+  if (!ed.orig && ed.photos.length && !confirm('Discard this keepsake?')) return;
+  hide('editor'); ed = null;
+};
+$('edSave').onclick = saveEditor;
+
+async function saveEditor(){
+  ed.title = $('edTitle').value.trim(); ed.story = $('edStory').value.trim();
+  if (!ed.photos.length) { toast('Add at least one photo first'); return; }
+  if (!ed.approx && !$('edDate').value) { toast('Pick a date, or switch on "just pick the grade"'); return; }
+  const done = busy('Saving to the vault…');
+  try {
+    // new box
+    let boxId = ed.original === 'keep' ? ed.box_id : null;
+    if (boxId === '__new') {
+      const name = $('nbName').value.trim() || 'Keeper Box';
+      const { data, error } = await sb.from('keepsake_boxes').insert({ name, girl: ed.girl==='Both'?null:ed.girl, location: $('nbLoc').value.trim() || null }).select().single();
+      if (error) throw error; state.boxes.push(data); boxId = data.id;
+    }
+    // ids & dates
+    const id = ed.id || crypto.randomUUID();
+    let itemDate, year;
+    if (ed.approx) { year = ed.year; itemDate = `${year}-10-01`; }
+    else { itemDate = $('edDate').value; year = schoolYearOf(itemDate); }
+    // upload new photos
+    const paths = [];
+    for (const p of ed.photos) {
+      if (p.path) { paths.push(p.path); continue; }
+      const stem = `${id}/${Date.now()}_${Math.random().toString(36).slice(2,7)}`;
+      const up1 = await sb.storage.from(BUCKET).upload(`${stem}.jpg`, p.full, { contentType:'image/jpeg' });
+      if (up1.error) throw up1.error;
+      const up2 = await sb.storage.from(BUCKET).upload(`${stem}_t.jpg`, p.thumb, { contentType:'image/jpeg' });
+      if (up2.error) throw up2.error;
+      state.urls[`${stem}.jpg`] = p.url; state.urls[`${stem}_t.jpg`] = p.url;
+      paths.push(`${stem}.jpg`);
+    }
+    const row = { girl: ed.girl, type: ed.type, title: ed.title || null, story: ed.story || null,
+      item_date: itemDate, date_is_approx: ed.approx, school_year: year, photos: paths,
+      book_worthy: ed.book, original: ed.original, box_id: boxId,
+      toss_done: ed.original === 'toss' ? (ed.orig?.toss_done ?? false) : false };
+    let res;
+    if (ed.id) res = await sb.from('keepsakes').update(row).eq('id', id).select().single();
+    else res = await sb.from('keepsakes').insert({ id, ...row }).select().single();
+    if (res.error) throw res.error;
+    if (ed.removed.length) await sb.storage.from(BUCKET).remove(ed.removed.flatMap(p => [p, thumbPath(p)]));
+    const saved = res.data;
+    const idx = state.items.findIndex(i => i.id === saved.id);
+    if (idx >= 0) state.items[idx] = saved; else state.items.unshift(saved);
+    state.items.sort((a,b) => b.item_date.localeCompare(a.item_date) || b.created_at.localeCompare(a.created_at));
+    done(); hide('editor');
+    const wasEdit = !!ed.id; ed = null;
+    $('nbName').value = '';
+    if (wasEdit) { openDetail(saved.id); } else { hide('detail'); render(); }
+    toast(saved.original === 'toss' && !wasEdit ? 'Saved! That paper is free to go. 🗑️' : 'Saved to the vault ✓');
+  } catch (e) {
+    done(); toast('Couldn\'t save: ' + (e.message || e), 5000);
+  }
+}
+
+/* ---------------- photo picking + crop ---------------- */
+function pickPhoto(kind){ const inp = kind === 'cam' ? $('fileCam') : $('fileGal'); inp.value = ''; inp.click(); }
+$('fileCam').onchange = e => e.target.files[0] && startCrop(e.target.files[0]);
+$('fileGal').onchange = e => e.target.files[0] && startCrop(e.target.files[0]);
+
+const crop = { src:null, pts:null, scale:1, ox:0, oy:0 };
+async function loadBitmap(file){
+  try { return await createImageBitmap(file, { imageOrientation:'from-image' }); }
+  catch { const img = new Image(); img.src = URL.createObjectURL(file); await img.decode(); return img; }
+}
+async function startCrop(file){
+  const bmp = await loadBitmap(file);
+  // downscale working source to keep phones happy
+  const s = Math.min(1, 3000 / Math.max(bmp.width, bmp.height));
+  const c = document.createElement('canvas'); c.width = Math.round(bmp.width*s); c.height = Math.round(bmp.height*s);
+  c.getContext('2d').drawImage(bmp, 0, 0, c.width, c.height);
+  crop.src = c; resetPts(); show('cropper'); layoutCrop();
+}
+function resetPts(){
+  const w = crop.src.width, h = crop.src.height, m = 0.06;
+  crop.pts = [[w*m,h*m],[w*(1-m),h*m],[w*(1-m),h*(1-m)],[w*m,h*(1-m)]];
+}
+function layoutCrop(){
+  const st = $('cropStage'), W = st.clientWidth, H = st.clientHeight, pad = 26;
+  const s = Math.min((W-pad*2)/crop.src.width, (H-pad*2)/crop.src.height);
+  crop.scale = s; crop.ox = (W - crop.src.width*s)/2; crop.oy = (H - crop.src.height*s)/2;
+  const cv = $('cropCanvas'); cv.width = Math.round(crop.src.width*s); cv.height = Math.round(crop.src.height*s);
+  cv.style.left = crop.ox+'px'; cv.style.top = crop.oy+'px';
+  cv.getContext('2d').drawImage(crop.src, 0, 0, cv.width, cv.height);
+  st.querySelectorAll('.handle').forEach(h => h.remove());
+  crop.pts.forEach((p, i) => {
+    const h = document.createElement('div'); h.className = 'handle'; h.dataset.i = i; st.appendChild(h); dragHandle(h);
+  });
+  drawCrop();
+}
+function drawCrop(){
+  const sp = crop.pts.map(([x,y]) => [crop.ox + x*crop.scale, crop.oy + y*crop.scale]);
+  $('cropPoly').setAttribute('points', sp.map(p => p.join(',')).join(' '));
+  $('cropStage').querySelectorAll('.handle').forEach(h => { const p = sp[+h.dataset.i]; h.style.left = p[0]+'px'; h.style.top = p[1]+'px'; });
+}
+function dragHandle(h){
+  h.addEventListener('pointerdown', e => {
+    h.setPointerCapture(e.pointerId);
+    const move = ev => {
+      const r = $('cropStage').getBoundingClientRect();
+      let x = (ev.clientX - r.left - crop.ox) / crop.scale, y = (ev.clientY - r.top - crop.oy) / crop.scale;
+      x = Math.max(0, Math.min(crop.src.width, x)); y = Math.max(0, Math.min(crop.src.height, y));
+      crop.pts[+h.dataset.i] = [x, y]; drawCrop();
+    };
+    const up = () => { h.removeEventListener('pointermove', move); h.removeEventListener('pointerup', up); h.removeEventListener('pointercancel', up); };
+    h.addEventListener('pointermove', move); h.addEventListener('pointerup', up); h.addEventListener('pointercancel', up);
+  });
+}
+window.addEventListener('resize', () => { if (!$('cropper').classList.contains('hidden')) layoutCrop(); });
+$('cpCancel').onclick = () => { hide('cropper'); crop.src = null; };
+$('cpRotate').onclick = () => {
+  const s = crop.src, c = document.createElement('canvas'); c.width = s.height; c.height = s.width;
+  const x = c.getContext('2d'); x.translate(c.width, 0); x.rotate(Math.PI/2); x.drawImage(s, 0, 0);
+  crop.src = c; resetPts(); layoutCrop();
+};
+$('cpWhole').onclick = () => { const w = crop.src.width, h = crop.src.height; finishCrop(scaleCanvas(crop.src, MAX_EDGE)); };
+$('cpDone').onclick = () => {
+  const done = busy('Straightening…');
+  setTimeout(() => { try { finishCrop(warp(crop.src, crop.pts)); } finally { done(); } }, 30);
+};
+function scaleCanvas(src, edge){
+  const s = Math.min(1, edge / Math.max(src.width, src.height));
+  const c = document.createElement('canvas'); c.width = Math.round(src.width*s); c.height = Math.round(src.height*s);
+  const x = c.getContext('2d'); x.imageSmoothingQuality = 'high'; x.drawImage(src, 0, 0, c.width, c.height); return c;
+}
+async function finishCrop(canvas){
+  hide('cropper');
+  const full = await new Promise(r => canvas.toBlob(r, 'image/jpeg', 0.86));
+  const tc = scaleCanvas(canvas, THUMB_EDGE);
+  const thumb = await new Promise(r => tc.toBlob(r, 'image/jpeg', 0.8));
+  ed.photos.push({ full, thumb, url: URL.createObjectURL(full) });
+  crop.src = null; drawEditor();
+}
+
+/* perspective warp: map the quad onto a flat rectangle */
+function solve(A, b){
+  const n = b.length;
+  for (let i = 0; i < n; i++) {
+    let m = i; for (let r = i+1; r < n; r++) if (Math.abs(A[r][i]) > Math.abs(A[m][i])) m = r;
+    [A[i], A[m]] = [A[m], A[i]]; [b[i], b[m]] = [b[m], b[i]];
+    for (let r = i+1; r < n; r++) { const f = A[r][i] / A[i][i]; for (let c = i; c < n; c++) A[r][c] -= f*A[i][c]; b[r] -= f*b[i]; }
+  }
+  const x = new Array(n).fill(0);
+  for (let i = n-1; i >= 0; i--) { let s = b[i]; for (let c = i+1; c < n; c++) s -= A[i][c]*x[c]; x[i] = s / A[i][i]; }
+  return x;
+}
+function homography(from, to){ // maps from[i] -> to[i]
+  const A = [], b = [];
+  for (let i = 0; i < 4; i++) {
+    const [x,y] = from[i], [u,v] = to[i];
+    A.push([x,y,1,0,0,0,-u*x,-u*y]); b.push(u);
+    A.push([0,0,0,x,y,1,-v*x,-v*y]); b.push(v);
+  }
+  return [...solve(A, b), 1];
+}
+function warp(src, pts){
+  const d = (a,b) => Math.hypot(a[0]-b[0], a[1]-b[1]);
+  let W = Math.max(d(pts[0],pts[1]), d(pts[3],pts[2])), H = Math.max(d(pts[0],pts[3]), d(pts[1],pts[2]));
+  const s = Math.min(1, MAX_EDGE / Math.max(W, H)); W = Math.round(W*s); H = Math.round(H*s);
+  const h = homography([[0,0],[W,0],[W,H],[0,H]], pts);
+  const sctx = src.getContext('2d'); const sd = sctx.getImageData(0, 0, src.width, src.height).data;
+  const sw = src.width, shh = src.height;
+  const out = document.createElement('canvas'); out.width = W; out.height = H;
+  const octx = out.getContext('2d'); const od = octx.createImageData(W, H); const o = od.data;
+  for (let y = 0; y < H; y++) {
+    for (let x = 0; x < W; x++) {
+      const z = h[6]*x + h[7]*y + h[8];
+      const sx = (h[0]*x + h[1]*y + h[2]) / z, sy = (h[3]*x + h[4]*y + h[5]) / z;
+      const x0 = Math.floor(sx), y0 = Math.floor(sy);
+      const oi = (y*W + x)*4;
+      if (x0 < 0 || y0 < 0 || x0 >= sw-1 || y0 >= shh-1) { o[oi]=o[oi+1]=o[oi+2]=255; o[oi+3]=255; continue; }
+      const fx = sx - x0, fy = sy - y0;
+      const i00 = (y0*sw + x0)*4, i10 = i00 + 4, i01 = i00 + sw*4, i11 = i01 + 4;
+      for (let c = 0; c < 3; c++) {
+        o[oi+c] = (sd[i00+c]*(1-fx) + sd[i10+c]*fx)*(1-fy) + (sd[i01+c]*(1-fx) + sd[i11+c]*fx)*fy;
+      }
+      o[oi+3] = 255;
+    }
+  }
+  octx.putImageData(od, 0, 0);
+  return out;
+}
+
+/* ---------------- settings ---------------- */
+$('settingsBtn').onclick = openSettings;
+$('stBack').onclick = () => { hide('settings'); render(); };
+async function openSettings(){
+  const { data:{ user } } = await sb.auth.getUser();
+  const thisYear = schoolYearOf(todayStr());
+  const gradeOpts = g => { let s=''; for (let i=-2;i<=12;i++) s += `<option value="${i}" ${g===i?'selected':''}>${gradeName(i)}</option>`; return s; };
+  $('stBody').innerHTML = `
+    <div class="field"><span class="lbl">Grade this school year (${yearLabel(thisYear)})</span>
+      ${state.kids.map(k => `<div class="row" style="align-items:center;margin-bottom:10px"><b style="flex:0 0 80px">${esc(k.name)}</b>
+        <select data-k="${esc(k.name)}">${gradeOpts(gradeFor(k.name, thisYear))}</select></div>`).join('')}
+      <div class="hint">Every school year in the timeline is labeled from this.</div>
+    </div>
+    <div class="field"><span class="lbl">Keeper Boxes</span>
+      ${state.boxes.length ? state.boxes.map(b => `<div class="facts" style="margin:8px 0"><div><b>${esc(b.name)}</b><span>${esc(b.location||'')} · ${state.items.filter(i=>i.box_id===b.id).length} inside</span></div></div>`).join('') : '<div class="hint">No boxes yet. Mark an original "Keep it" to start one.</div>'}
+    </div>
+    <div class="field"><span class="lbl">Signed in</span><div class="hint" style="margin:0 0 10px">${esc(user?.email||'')}</div>
+      <button class="secondary" id="signOut">Sign out</button></div>`;
+  $('stBody').querySelectorAll('select[data-k]').forEach(sel => sel.onchange = async () => {
+    const g2026 = +sel.value - (thisYear - 2026);
+    const { error } = await sb.from('keepsake_kids').update({ grade_2026: g2026 }).eq('name', sel.dataset.k);
+    if (error) return toast('Couldn\'t save: ' + error.message);
+    state.kids.find(k => k.name === sel.dataset.k).grade_2026 = g2026; toast('Grade updated');
+  });
+  $('signOut').onclick = async () => { await sb.auth.signOut(); location.reload(); };
+  show('settings');
+}
+
+/* ---------------- go ---------------- */
+$('fab').onclick = () => openEditor(null);
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(()=>{});
+boot();
+</script>
+</body>
+</html>
